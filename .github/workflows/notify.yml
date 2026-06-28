@@ -1,0 +1,17 @@
+name: Notify
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, closed, reopened]
+  issues:
+    types: [opened, closed, reopened]
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: yehuoshun/yehuoshun-notify@main
+        with:
+          webhook: ${{ secrets.DINGTALK_WEBHOOK }}

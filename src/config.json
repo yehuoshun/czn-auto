@@ -1,0 +1,29 @@
+{
+  "game": {
+    "window_title": "卡厄思梦境",
+    "window_class": null
+  },
+  "click": {
+    "delay_ms": 100,
+    "post_click_wait_ms": 500,
+    "humanize": true
+  },
+  "loop": {
+    "interval_ms": 1000,
+    "max_iterations": 0
+  },
+  "log": {
+    "level": "DEBUG",
+    "file": "src/logs/czn-auto.log",
+    "max_size_mb": 50,
+    "backup_count": 5
+  },
+  "mode": {
+    "type": "outing"
+  },
+  "outing": {
+    "target_level": 45,
+    "repeat_battle": false,
+    "max_repeats": 0
+  }
+}

@@ -106,15 +106,21 @@ class Screenshot:
 
         image = None
         if result != 0:
-            # 从位图创建 PIL Image
-            bmp_info = ctypes.create_string_buffer(ctypes.sizeof(wintypes.BITMAPINFOHEADER) + 8)
-            bmp_header = ctypes.cast(bmp_info, wintypes.PBITMAPINFOHEADER)
-            bmp_header.contents.biSize = ctypes.sizeof(wintypes.BITMAPINFOHEADER)
-            bmp_header.contents.biWidth = width
-            bmp_header.contents.biHeight = -height  # 负值 = 自上而下
-            bmp_header.contents.biPlanes = 1
-            bmp_header.contents.biBitCount = 32
-            bmp_header.contents.biCompression = 0  # BI_RGB
+            BMP_INFO_SIZE = 40
+            bmp_info = ctypes.create_string_buffer(BMP_INFO_SIZE + 8)
+            ctypes.memset(bmp_info, 0, BMP_INFO_SIZE + 8)
+            (ctypes.c_uint * 1).from_buffer(bmp_info, 0)[0] = BMP_INFO_SIZE
+            (ctypes.c_int * 1).from_buffer(bmp_info, 4)[0] = width
+            (ctypes.c_int * 1).from_buffer(bmp_info, 8)[0] = -height
+            (ctypes.c_uint16 * 1).from_buffer(bmp_info, 12)[0] = 1
+            (ctypes.c_uint16 * 1).from_buffer(bmp_info, 14)[0] = 32
+            (ctypes.c_uint * 1).from_buffer(bmp_info, 16)[0] = 0
+
+            buf = ctypes.create_string_buffer(width * height * 4)
+            self._gdi32.GetDIBits(mem_dc, bitmap, 0, height, buf, bmp_info, 0)
+            image = Image.frombuffer("RGBA", (width, height), buf, "raw", "BGRA", 0, 1)
+            image = image.convert("RGB")
+            logger.debug(f"PrintWindow 截图成功: {width}x{height}")
 
             buf = ctypes.create_string_buffer(width * height * 4)
             self._gdi32.GetDIBits(mem_dc, bitmap, 0, height, buf, bmp_info, 0)

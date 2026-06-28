@@ -145,9 +145,15 @@ class HomePage:
     # ==================== 菜单按钮 OCR ====================
 
     def find_button(self, screenshot, target: str) -> tuple | None:
-        """OCR 查找菜单按钮，返回 (screen_x, screen_y) 或 None"""
+        """
+        查找菜单按钮
+        优先 OCR 匹配，失败时用固定坐标兜底
+        返回 (screen_x, screen_y) 或 None
+        """
         if target not in BUTTON_NAMES:
             return None
+
+        # 尝试 OCR
         h, w = screenshot.shape[:2]
         x1, y1 = int(w * MENU_LEFT), int(h * MENU_TOP)
         x2, y2 = int(w * MENU_RIGHT), int(h * MENU_BOTTOM)
@@ -156,6 +162,16 @@ class HomePage:
                 cx = int((bbox[0][0] + bbox[2][0]) / 2)
                 cy = int((bbox[0][1] + bbox[2][1]) / 2)
                 return x1 + cx, y1 + cy
+
+        # 兜底：固定坐标（右侧菜单栏，基于 1920×1080）
+        idx = BUTTON_NAMES.index(target)
+        ratios = BUTTON_Y_RATIOS
+        if idx < len(ratios):
+            base_x = 1728
+            base_y = int(1080 * ratios[idx])
+            logger.info(f"固定坐标 {target}: ({base_x},{base_y})")
+            return base_x, base_y
+
         return None
 
     def find_back_arrow(self, screenshot) -> tuple | None:

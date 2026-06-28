@@ -145,27 +145,24 @@ class Screenshot:
 
     def capture(self, clicker=None, wake_ui: bool = False) -> Image.Image | None:
         """
-        截图：聚焦窗口 → 截图
-        wake_ui: 是否唤醒 UI（点击空白区域防止长时间不操作隐藏 UI）
-        需要管理员权限运行（ACE 会拦截非管理员进程的鼠标操作）
+        截图：PrintWindow 后台截图（不依赖窗口焦点）
+        wake_ui: 是否唤醒 UI
         """
-        self.focus_window()
+        # 优先后台截图：不依赖窗口焦点，切屏也能截
+        image = self.capture_printwindow()
+        if image is not None:
+            return image
 
-        # 只在明确需要时才唤醒 UI，避免在子页面误触按钮
+        # 回退：聚焦窗口后 ImageGrab
+        self.focus_window()
         if clicker and wake_ui:
             import random
-            # 点窗口中心附近空白区域（避开 UI 密集区）
             cx = 960 + random.randint(-100, 100)
             cy = 540 + random.randint(-50, 50)
             clicker.post_click(cx, cy)
             time.sleep(0.2)
-
         image = self.capture_imagegrab()
-        if image is not None:
-            return image
-
-        logger.info("ImageGrab 失败，回退到 PrintWindow")
-        return self.capture_printwindow()
+        return image
 
     def to_cv2(self, image: Image.Image) -> np.ndarray:
         """PIL Image 转 OpenCV 格式 (BGR)"""

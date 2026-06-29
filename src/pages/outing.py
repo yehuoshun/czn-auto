@@ -29,9 +29,11 @@ LEVEL_TEXT_RIGHT = 0.65
 LEVEL_TEXT_TOP = 0.25
 LEVEL_TEXT_BOTTOM = 0.45
 
-# 左侧箭头按钮固定坐标（基准）
+# 箭头按钮固定坐标（基准）
 ARROW_LEFT_X = 288
 ARROW_LEFT_Y = 594
+ARROW_RIGHT_X = 1632
+ARROW_RIGHT_Y = 594
 
 # 底部「进入」按钮区域
 ENTER_BTN_LEFT = 0.30
@@ -56,15 +58,31 @@ class OutingPage(BasePage):
     def is_page(self, screenshot: np.ndarray) -> bool:
         """
         判断是否在出击页面。
+
+        检测标题区域是否包含「次元奇点」（关卡/页面标题）
+        或页面其他关键区域包含「出击累计通关」等特征文字。
         """
         h, w = screenshot.shape[:2]
+
+        # 检测 1：标题区域
         x1 = int(w * TITLE_LEFT)
         y1 = int(h * TITLE_TOP)
         x2 = int(w * TITLE_RIGHT)
         y2 = int(h * TITLE_BOTTOM)
-
         text = self.rec.ocr_region(screenshot, x1, y1, x2 - x1, y2 - y1)
-        return bool(text and "出击" in text)
+        if text and ("次元奇点" in text or "出击累计" in text):
+            return True
+
+        # 检测 2：中间区域兜底
+        cx1 = int(w * 0.30)
+        cy1 = int(h * 0.40)
+        cx2 = int(w * 0.70)
+        cy2 = int(h * 0.60)
+        ctext = self.rec.ocr_region(screenshot, cx1, cy1, cx2 - cx1, cy2 - cy1)
+        if ctext and "次元奇点" in ctext:
+            return True
+
+        return False
 
     # ---------- 关卡等级 ----------
 
@@ -146,12 +164,21 @@ class OutingPage(BasePage):
 
     def get_arrow_left_pos(self, screenshot: np.ndarray) -> Tuple[int, int]:
         """
-        左侧切换箭头固定坐标。
+        左侧切换箭头固定坐标（减小等级）。
 
         Returns:
             基准坐标 (x, y)
         """
         return ARROW_LEFT_X, ARROW_LEFT_Y
+
+    def get_arrow_right_pos(self, screenshot: np.ndarray) -> Tuple[int, int]:
+        """
+        右侧切换箭头固定坐标（增大等级）。
+
+        Returns:
+            基准坐标 (x, y)
+        """
+        return ARROW_RIGHT_X, ARROW_RIGHT_Y
 
     def find_back_arrow(self, screenshot: np.ndarray) -> Optional[Tuple[int, int]]:
         """

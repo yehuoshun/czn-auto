@@ -27,5 +27,10 @@
     "stage_keyword": "幻象",
     "difficulty": "困难",
     "max_repeats": 0
+  },
+  "recovery": {
+    "max_page_stuck": 30,
+    "max_unknown": 5,
+    "max_recovery_attempts": 10
   }
 }

@@ -133,20 +133,24 @@ def _test_find_confirm_button():
 
 
 def _test_is_page():
-    """测试页面判定。"""
+    """测试页面判定（基于真实 OCR 数据更新）。"""
     from src.pages.outing import OutingPage
 
     rec = MockRecognizer()
     outing = OutingPage(rec, {})
     ss = _make_screenshot()
 
-    # 标题含"出击"
-    rec._ocr_region_result = "出击"
-    assert outing.is_page(ss), "应识别为出击页面"
+    # 标题含"次元奇点"
+    rec._ocr_region_result = "次元奇点"
+    assert outing.is_page(ss), "标题含次元奇点应识别"
+
+    # 标题含"出击累计"
+    rec._ocr_region_result = "出击累计通关"
+    assert outing.is_page(ss), "标题含出击累计应识别"
 
     # 标题不含
     rec._ocr_region_result = "卡厄思梦境"
-    assert not outing.is_page(ss), "不应识别为出击页面"
+    assert not outing.is_page(ss), "不应识别"
 
     # 空标题
     rec._ocr_region_result = ""
@@ -156,7 +160,7 @@ def _test_is_page():
 
 
 def _test_get_arrow_pos():
-    """测试箭头坐标。"""
+    """测试箭头坐标（左右）。"""
     from src.pages.outing import OutingPage
 
     rec = MockRecognizer()
@@ -166,35 +170,46 @@ def _test_get_arrow_pos():
     pos = outing.get_arrow_left_pos(ss)
     assert pos == (288, 594), f"左箭头坐标: {pos}"
 
+    pos = outing.get_arrow_right_pos(ss)
+    assert pos == (1632, 594), f"右箭头坐标: {pos}"
+
     print("  ✅ test_get_arrow_pos")
 
 
 def _test_level_adjustment_logic():
-    """测试等级调整方向逻辑（main.py 的 _handle_outing 逻辑）。"""
-    # 模拟 main.py 中的等级调整代码
-    # 这部分逻辑在 main.py 的 _handle_outing 中
-
-    def adjust_level(current, target):
-        """模拟等级调整逻辑。"""
+    """测试等级调整方向逻辑（双向箭头）。"""
+    def adjust(current, target):
         if current is None:
-            return None  # 无法读取
+            return None
         if current == target:
-            return 0  # 不需要调整
+            return 0
         if current > target:
-            return -1  # 需要点左箭头（减少）
-        else:
-            return 1  # 需要点右箭头（增加）
+            return -1  # 左箭头（减）
+        return 1  # 右箭头（增）
 
-    # 需要减少
-    assert adjust_level(50, 40) == -1
-    # 需要增加
-    assert adjust_level(30, 40) == 1
-    # 已达标
-    assert adjust_level(40, 40) == 0
-    # 无法读取
-    assert adjust_level(None, 40) is None
+    assert adjust(50, 40) == -1   # 需要减
+    assert adjust(30, 40) == 1    # 需要增
+    assert adjust(40, 40) == 0    # 已达标
+    assert adjust(50, 50) == 0
+    assert adjust(10, 100) == 1   # 大幅增加
+    assert adjust(None, 40) is None
 
     print("  ✅ test_level_adjustment_logic")
+
+
+def _test_level_adjustment_max_clicks():
+    """测试等级调整最大点击次数限制。"""
+    def max_clicks(current, target):
+        if current > target:
+            return min(current - target, 20)
+        return min(target - current, 20)
+
+    assert max_clicks(50, 40) == 10
+    assert max_clicks(30, 40) == 10
+    assert max_clicks(100, 40) == 20  # 限制 20 次
+    assert max_clicks(40, 100) == 20  # 限制 20 次
+
+    print("  ✅ test_level_adjustment_max_clicks")
 
 
 def _test_find_back_arrow():
@@ -245,6 +260,7 @@ def main():
         _test_is_page,
         _test_get_arrow_pos,
         _test_level_adjustment_logic,
+        _test_level_adjustment_max_clicks,
         _test_find_back_arrow,
         _test_config_defaults,
     ]

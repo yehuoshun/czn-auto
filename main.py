@@ -66,6 +66,13 @@ class CZNAuto:
         })
         self.battle_count = 0
 
+        # 异常恢复状态
+        self._last_page = None
+        self._last_page_count = 0
+        self._max_page_stuck = self.config.get("recovery", "max_page_stuck", default=30)
+        self._recovery_mode = False
+        self._recovery_attempts = 0
+
         self._init_modules()
 
     def _init_modules(self):
@@ -107,6 +114,106 @@ class CZNAuto:
             return None
         return self.screenshot.to_cv2(img)
 
+    # ---------- 异常恢复 ----------
+
+    def _detect_in_battle(self, screenshot) -> bool:
+        """
+        检测是否在战斗进行中（非结算画面）。
+
+        通过检测画面中是否存在 UI 元素来判断战斗进行中。
+        """
+        h, w = screenshot.shape[:2]
+        # 战斗界面通常有左下角技能按钮、右上角暂停等
+        # 检测中心区域是否有大面积的纯色/无文字区域
+        text = self.recognizer.ocr_region(
+            screenshot,
+            int(w * 0.40), int(h * 0.40),
+            int(w * 0.20), int(h * 0.20),
+        )
+        # 战斗进行中通常没有密集文字，返回简略文字
+        if not text or len(text) < 5:
+            return False
+        # 有结算/操作相关文字说明在战斗中
+        return False
+
+    def _check_recovery(self, page: str) -> bool:
+        """
+        检查是否卡住/异常，需要恢复。
+
+        检测策略：
+          1. 连续多次同一页面且无进展 → 触发恢复
+          2. 连续多次 unknown → 触发恢复
+          3. 恢复模式中 → 强制回主页
+
+        Returns:
+            True 表示正在恢复中，上层应跳过当前 step
+        """
+        if self._recovery_mode:
+            logger.warning(f"🔄 恢复模式 (尝试 {self._recovery_attempts + 1}/10)")
+            self._go_home()
+            self._recovery_attempts += 1
+            if self._recovery_attempts > 10:
+                logger.error("❌ 恢复失败：多次尝试回主页无果，暂停自动操作")
+                self.mode = MODE_MANUAL
+                self._recovery_mode = False
+            return True
+
+        # 检测页面卡住
+        if page == self._last_page:
+            self._last_page_count += 1
+        else:
+            self._last_page = page
+            self._last_page_count = 0
+
+        # 连续 unknown → 触发恢复
+        if page == "unknown" and self._last_page_count >= 5:
+            logger.warning(f"⚠️ 页面未知持续 {self._last_page_count} 轮，触发恢复")
+            self._recovery_mode = True
+            self._recovery_attempts = 0
+            return True
+
+        # 非自动模式不触发超时恢复
+        if self.mode == MODE_MANUAL:
+            return False
+
+        # 同一页面卡住超时
+        if self._last_page_count >= self._max_page_stuck:
+            logger.warning(f"⚠️ 页面 '{page}' 卡住 {self._last_page_count} 轮，触发恢复")
+            self._recovery_mode = True
+            self._recovery_attempts = 0
+            return True
+
+        return False
+
+    def _click_popup_close(self, screenshot):
+        """
+        弹窗关闭（增强版）。
+
+        优先 OCR 查找关闭/取消/X 按钮，兜底 ESC。
+        """
+        h, w = screenshot.shape[:2]
+        # 查找底部按钮区域
+        x1, y1 = int(w * 0.25), int(h * 0.75)
+        x2, y2 = int(w * 0.75), int(h * 0.95)
+        roi = screenshot[y1:y2, x1:x2]
+        results = self.recognizer.ocr_full(roi)
+
+        close_keywords = ("关闭", "取消", "确定", "知道了", "确认")
+        for bbox, text, conf in results:
+            for kw in close_keywords:
+                if kw in text:
+                    cx = x1 + int((bbox[0][0] + bbox[2][0]) / 2)
+                    cy = y1 + int((bbox[0][1] + bbox[2][1]) / 2)
+                    base_x = int(cx * 1920 / w)
+                    base_y = int(cy * 1080 / h)
+                    self.clicker.click(base_x, base_y)
+                    logger.info(f"弹窗关闭: '{text}' ({base_x},{base_y})")
+                    return
+
+        # 兜底 ESC
+        self.clicker.send_key(0x1B)
+        logger.debug("弹窗关闭: ESC 兜底")
+
     # ---------- 主循环 ----------
 
     def step(self):
@@ -115,14 +222,19 @@ class CZNAuto:
 
         页面判定流程：
           1. HomePage.detect_page() 返回页面标识
-          2. 根据标识分发到对应的 handler
-          3. 未知页面检测战斗结算
+          2. 异常检测（卡住/翻车）
+          3. 根据标识分发到对应的 handler
+          4. 未知页面检测战斗结算
         """
         cv_img = self._capture()
         if cv_img is None:
             return
 
         page = self.home.detect_page(cv_img)
+
+        # 异常恢复检查
+        if self._check_recovery(page):
+            return
 
         # 未知页面优先检测战斗结算
         if page == "unknown" and self.mode != MODE_MANUAL:
@@ -137,7 +249,7 @@ class CZNAuto:
             case "outing":  self._handle_outing(cv_img)
             case "season":  self._handle_season(cv_img)
             case "czn":     self._handle_czn(cv_img)
-            case "popup":   self.clicker.send_key(0x1B)  # ESC 关闭弹窗
+            case "popup":   self._click_popup_close(cv_img)
             case _:         self._go_home()
 
     # ---------- 页面处理器 ----------
@@ -168,12 +280,21 @@ class CZNAuto:
         if self.mode != MODE_OUTING:
             return
 
-        # 设置目标等级
-        target = self.outing_cfg.get("target_level", 45)
+        # 设置目标等级（支持双向调整）
+        target = self.outing_cfg.get("target_level", 40)
         current = self.outing.read_level(screenshot)
         if current is not None and current != target:
-            arrow = self.outing.get_arrow_left_pos(screenshot)
-            for _ in range(10):
+            if current > target:
+                # 需要降低等级 → 点左箭头
+                arrow = self.outing.get_arrow_left_pos(screenshot)
+                max_clicks = min(current - target, 20)
+            else:
+                # 需要升高等级 → 点右箭头
+                arrow = self.outing.get_arrow_right_pos(screenshot)
+                max_clicks = min(target - current, 20)
+
+            logger.info(f"调整等级: LV.{current} → {target} ({'减' if current > target else '增'} {max_clicks} 次)")
+            for _ in range(max_clicks):
                 self.clicker.click(*arrow)
                 time.sleep(0.8)
                 current = self.outing.read_level(screenshot)

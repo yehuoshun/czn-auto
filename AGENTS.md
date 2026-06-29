@@ -2,6 +2,17 @@
 
 > 写给接手这个项目的 AI Agent。
 
+## 🚨 铁律：不要安装任何依赖
+
+**这台机器不是测试环境。** 这个项目跑在 Windows 上（Win32 API），开发环境是 Linux。
+
+- ❌ **禁止** `pip install`、`npm install`、`apt install` 任何东西
+- ❌ **禁止** 尝试运行依赖 numpy/opencv/paddleocr 的测试代码
+- ✅ 代码验证只用 `python3 -c "import ast; ast.parse(open(f).read())"` 做语法检查
+- ✅ 逻辑验证靠静态分析，不需要实际跑起来
+
+如果需要在 Windows 上测试，老大会在 Windows 机器上跑。你只负责写代码和提交。
+
 ## 项目是什么
 
 一个 **Python + OpenCV + Win32 API** 的游戏自动化脚本。纯视觉识别 + 后台模拟操作。
@@ -109,6 +120,34 @@ cv_img = screenshot.to_cv2(img)     # → OpenCV BGR
 - **新增页面**：在 `src/pages/` 加识别类，在 `main.py` 加分支
 - **改代码** → 同步更新 AGENTS.md 和 README.md
 
+## 异常恢复机制
+
+`main.py` 内置了多层异常恢复：
+
+### 卡页检测
+- `_check_recovery()` 每步检查是否卡在同一页面
+- `max_page_stuck`（默认 30）轮后触发恢复
+- 连续 5 轮 `unknown` 立即触发恢复
+
+### 恢复模式
+- 触发后进入 `_recovery_mode`，每次 step 强制 ESC 回主页
+- 最多尝试 10 次，超过则暂停自动操作（mode=manual）
+
+### 弹窗处理
+- `_click_popup_close()` 优先 OCR 查找「关闭/取消/确定」按钮
+- 兜底 ESC 按键
+
+### 配置
+```json
+{
+  "recovery": {
+    "max_page_stuck": 30,
+    "max_unknown": 5,
+    "max_recovery_attempts": 10
+  }
+}
+```
+
 ## 项目状态
 
 - ✅ PrintWindow 后台截图
@@ -123,10 +162,16 @@ cv_img = screenshot.to_cv2(img)     # → OpenCV BGR
 - ✅ 代码审查清理（删未用 import、补 typing、删死代码、补 __init__.py）
 - ✅ 出击流程实机测试脚本 test/test_outing_flow.py
 - ✅ 出击模块单元测试 test/test_outing_unit.py
-- 🚧 CZN 页面 ROI 需实际截图微调
+- 🚧 CZN 页面 ROI 需实际截图微调（Windows 实测）
 - 🚧 PostMessage 兼容性需 Windows 实测
-- 🚧 异常恢复（翻车检测、超时重试）
-- 🚧 等级调整需增加右箭头（当前只有左箭头减等级）
+- ✅ 等级调整支持双向箭头（左减右增）
+- ✅ 异常恢复机制：
+  - 卡页检测（同一页面连续 N 轮 → 触发恢复）
+  - 未知页面超时（连续 5 轮 unknown → 触发恢复）
+  - 恢复模式（强制 ESC 回主页，最多 10 次尝试）
+  - 弹窗关闭增强版（优先 OCR 找关闭按钮，兜底 ESC）
+- ✅ PaddleOCR v3 接口兼容性修复（统一 OCRResult/dict 解析）
+- ✅ HomePage 增加 find_season_banner()（模板匹配赛季横幅）
 
 ## 测试脚本
 
@@ -137,6 +182,16 @@ python test/test_outing_flow.py
 # 单元测试（不依赖 Windows API）
 python test/test_outing_unit.py
 ```
+
+### 单元测试覆盖
+- `test_read_level` — 等级 OCR 数字提取
+- `test_find_enter_button` — 进入按钮识别
+- `test_find_confirm_button` — 确认按钮识别
+- `test_is_page` — 页面判定
+- `test_get_arrow_pos` — 左右箭头坐标（新增右箭头）
+- `test_level_adjustment_logic` — 双向调整方向逻辑
+- `test_level_adjustment_max_clicks` — 最大点击次数限制
+- `test_find_back_arrow` — 返回箭头模板匹配
 
 ## 参考数据
 

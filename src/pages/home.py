@@ -48,7 +48,7 @@ SUB_PAGE_TITLE_BOTTOM = 0.08
 SUB_PAGE_KEYWORDS = {
     "银河系灾害": "season",
     "卡厄思": "czn",
-    "出击": "outing",
+    "次元奇点": "outing",
 }
 
 
@@ -235,9 +235,13 @@ class HomePage(BasePage):
 
         for bbox, text, conf in self.rec.ocr_full(screenshot[y1:y2, x1:x2]):
             if _fuzzy_match(target, text):
-                cx = int((bbox[0][0] + bbox[2][0]) / 2)
-                cy = int((bbox[0][1] + bbox[2][1]) / 2)
-                return x1 + cx, y1 + cy
+                # OCR 返回 ROI 内坐标 → 截图全局坐标 → 基准 1920×1080 坐标
+                cx = x1 + int((bbox[0][0] + bbox[2][0]) / 2)
+                cy = y1 + int((bbox[0][1] + bbox[2][1]) / 2)
+                base_x = int(cx * 1920 / w)
+                base_y = int(cy * 1080 / h)
+                logger.debug(f"菜单按钮 '{target}': 截图({cx},{cy}) → 基准({base_x},{base_y})")
+                return base_x, base_y
 
         # 固定坐标兜底（1920×1080）
         idx = BUTTON_NAMES.index(target)
@@ -247,6 +251,32 @@ class HomePage(BasePage):
             logger.info(f"固定坐标 {target}: ({base_x},{base_y})")
             return base_x, base_y
 
+        return None
+
+
+    # ---------- 赛季横幅 ----------
+
+    def find_season_banner(self, screenshot: np.ndarray) -> Optional[Tuple[int, int]]:
+        """
+        查找赛季横幅入口（如 S3 银河系灾害横幅）。
+
+        模板匹配 `src/images/s3/banner.png`，找到后点击进入赛季页面。
+
+        Returns:
+            基准坐标 (x, y) 或 None
+        """
+        result = self.rec.match_template(
+            screenshot, "season_banner",
+            "src/images/s3/banner.png",
+            threshold=0.40,
+        )
+        if result:
+            x, y, conf = result
+            h, w = screenshot.shape[:2]
+            base_x = int(x * 1920 / w)
+            base_y = int(y * 1080 / h)
+            logger.info(f"赛季横幅: ({base_x},{base_y}) conf={conf:.3f}")
+            return base_x, base_y
         return None
 
 

@@ -99,16 +99,61 @@ class Recognizer:
 
     # ==================== PaddleOCR 文字识别 (PP-OCRv6) ====================
 
+    def _parse_ocr_result(self, raw: list) -> list:
+        """
+        将 PaddleOCR 原始结果统一解析为 [(bbox, text, confidence), ...]。
+
+        PaddleOCR 3.x predict() 返回的 item 可能是 OCRResult 对象或 dict，
+        不同版本格式有差异，这里统一处理。
+        """
+        results = []
+        for item in raw:
+            # OCRResult 对象格式 (PP-OCRv6 3.x)
+            if hasattr(item, 'rec_texts') and hasattr(item, 'rec_scores'):
+                texts = item.rec_texts or []
+                scores = item.rec_scores or []
+                boxes = item.dt_polys if hasattr(item, 'dt_polys') else []
+            # 单结果 OCRResult 对象
+            elif hasattr(item, 'rec_text') and hasattr(item, 'rec_score'):
+                texts = [item.rec_text] if item.rec_text else []
+                scores = [item.rec_score] if hasattr(item, 'rec_score') else [1.0]
+                boxes = item.dt_poly if hasattr(item, 'dt_poly') else []
+                if boxes:
+                    boxes = [boxes]
+            # dict 格式
+            elif isinstance(item, dict):
+                texts = item.get('rec_texts', item.get('rec_text', []))
+                if isinstance(texts, str):
+                    texts = [texts]
+                scores = item.get('rec_scores', item.get('rec_score', [1.0] * len(texts)))
+                if isinstance(scores, (int, float)):
+                    scores = [scores]
+                boxes = item.get('dt_polys', item.get('dt_poly', []))
+                if boxes and not isinstance(boxes[0], list):
+                    boxes = [boxes]
+            else:
+                continue
+
+            for i, text in enumerate(texts):
+                if not text:
+                    continue
+                bbox = boxes[i] if i < len(boxes) else [[0, 0], [0, 0], [0, 0], [0, 0]]
+                conf = scores[i] if i < len(scores) else 1.0
+                results.append((bbox, text, conf))
+
+        return results
+
     def _ocr_raw(self, image: np.ndarray) -> list:
         """
-        调用 PaddleOCR predict 并返回统一格式
-        predict 返回: list of dict 或 list of OCRResult
+        调用 PaddleOCR predict 并返回解析后的结果列表。
         """
         ocr = _get_ocr()
-        result = list(ocr.predict(image))
-        if not result:
+        try:
+            raw = list(ocr.predict(image))
+            return self._parse_ocr_result(raw)
+        except Exception as e:
+            logger.warning(f"OCR 调用失败: {e}")
             return []
-        return result
 
     def ocr_region(
         self,
@@ -121,17 +166,8 @@ class Recognizer:
         """
         region = screenshot[y:y + h, x:x + w]
 
-        raw = self._ocr_raw(region)
-        if not raw:
-            return ""
-
-        # PaddleOCR 3.x predict 返回 OCRResult 对象列表
-        texts = []
-        for item in raw:
-            if hasattr(item, 'rec_texts'):
-                texts.extend(item.rec_texts)
-            elif hasattr(item, 'rec_text'):
-                texts.append(item.rec_text)
+        results = self._ocr_raw(region)
+        texts = [t for _, t, _ in results]
 
         text = " ".join(texts).strip()
         logger.debug(f"OCR 区域 ({x},{y},{w},{h}): '{text}'")
@@ -143,29 +179,7 @@ class Recognizer:
         返回: [(bbox, text, confidence), ...]
         bbox: [[x1,y1], [x2,y2], [x3,y3], [x4,y4]]
         """
-        raw = self._ocr_raw(screenshot)
-        if not raw:
-            return []
-
-        results = []
-        for item in raw:
-            # 兼容 OCRResult 对象和 dict 格式
-            if hasattr(item, 'rec_texts'):
-                texts = item.rec_texts
-                scores = item.rec_scores if hasattr(item, 'rec_scores') else [1.0] * len(texts)
-                boxes = item.dt_polys if hasattr(item, 'dt_polys') else []
-            else:
-                # dict 格式
-                texts = item.get('rec_texts', [])
-                scores = item.get('rec_scores', [1.0] * len(texts))
-                boxes = item.get('dt_polys', [])
-
-            for i, text in enumerate(texts):
-                bbox = boxes[i] if i < len(boxes) else [[0, 0], [0, 0], [0, 0], [0, 0]]
-                conf = scores[i] if i < len(scores) else 1.0
-                results.append((bbox, text, conf))
-
-        return results
+        return self._ocr_raw(screenshot)
 
     def find_text(self, screenshot: np.ndarray, keyword: str) -> list[tuple]:
         """

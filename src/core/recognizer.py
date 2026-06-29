@@ -109,15 +109,15 @@ class Recognizer:
         results = []
         for item in raw:
             # OCRResult 对象格式 (PP-OCRv6 3.x)
-            if hasattr(item, 'rec_texts') and hasattr(item, 'rec_scores'):
+            if hasattr(item, 'rec_texts'):
                 texts = item.rec_texts or []
-                scores = item.rec_scores or []
-                boxes = item.dt_polys if hasattr(item, 'dt_polys') else []
+                scores = getattr(item, 'rec_scores', None) or [1.0] * len(texts)
+                boxes = getattr(item, 'dt_polys', [])
             # 单结果 OCRResult 对象
-            elif hasattr(item, 'rec_text') and hasattr(item, 'rec_score'):
+            elif hasattr(item, 'rec_text'):
                 texts = [item.rec_text] if item.rec_text else []
-                scores = [item.rec_score] if hasattr(item, 'rec_score') else [1.0]
-                boxes = item.dt_poly if hasattr(item, 'dt_poly') else []
+                scores = [getattr(item, 'rec_score', 1.0)]
+                boxes = getattr(item, 'dt_poly', [])
                 if boxes:
                     boxes = [boxes]
             # dict 格式

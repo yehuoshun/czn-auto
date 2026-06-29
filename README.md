@@ -1,18 +1,22 @@
-# 卡厄思梦境自动化脚本
+# 卡厄思梦境自动化脚本 (v2)
 
 基于 **Python + OpenCV + Win32 API** 的游戏自动化框架。
 
-> 不碰内存、不注入、不改包。纯视觉识别 + 模拟点击。
+> 不碰内存、不注入、不改包。纯视觉识别 + 后台模拟点击。
+
+**v2 核心变更**：
+- **PrintWindow** 后台截图（不依赖窗口焦点）
+- **PostMessage** 后台点击（不依赖鼠标位置）
+- 一套方案走到底，无冗余回退
 
 ## 核心能力
 
-| 模块 | 能力 | 技术方案 |
-|------|------|----------|
-| **截图** | 游戏窗口截图 | ImageGrab（主） → PrintWindow（回退） |
-| **识别** | 主页/子页面判定 | 竖线检测 + 返回箭头模板匹配 |
-| **OCR** | 菜单按钮文字识别 | PaddleOCR（PP-OCRv6） |
-| **点击** | 模拟真实鼠标点击 | SetCursorPos + mouse_event（管理员权限） |
-| **导航** | 主页↔子页面切换 | OCR 定位菜单按钮 + 返回箭头模板匹配 |
+| 能力 | 方案 | 特点 |
+|------|------|------|
+| **截图** | PrintWindow API | 后台截图，窗口隐藏/最小化也能截 |
+| **识别** | 竖线检测 + 模板匹配 + PaddleOCR | 页面判定 + 文字识别 |
+| **点击** | PostMessage (WM_LBUTTONDOWN/UP) | 后台发送消息，不移动鼠标 |
+| **导航** | OCR 定位菜单按钮 + 模板匹配返回箭头 | 主页↔子页面切换 |
 
 ## 项目结构
 
@@ -22,33 +26,38 @@ czn-auto/
 ├── src/
 │   ├── config.json            # 配置文件
 │   ├── core/                  # 底层能力
-│   │   ├── screenshot.py      # 截图：ImageGrab + PrintWindow
-│   │   ├── recognizer.py      # 识别：模板匹配 + PaddleOCR
-│   │   ├── clicker.py         # 点击：SetCursorPos / SendInput
-│   │   ├── config.py          # 配置：JSON 加载，自动缩放
-│   │   └── logger.py          # 日志：文件+控制台双输出，终端文件一致
+│   │   ├── screenshot.py      # PrintWindow 后台截图
+│   │   ├── recognizer.py      # 模板匹配 + PaddleOCR
+│   │   ├── clicker.py         # PostMessage 后台点击
+│   │   ├── config.py          # JSON 配置加载，自动缩放
+│   │   └── logger.py          # 日志双输出
 │   ├── modules/               # 识别层（纯视觉，不点击）
 │   │   ├── home.py            # 主页检测 / 页面判定 / 赛季入口
-│   │   ├── season.py          # 赛季页面识别 / 卡厄思按钮
-│   │   └── czn.py             # 常驻卡厄思页面识别 / 关卡/难度/确认按钮
+│   │   ├── season.py          # 赛季页面 / 卡厄思按钮
+│   │   ├── czn.py             # 卡厄思页面 / 关卡/难度/确认按钮
+│   │   ├── outing.py          # 出击页面 / 等级/进入按钮
+│   │   └── battle.py          # 战斗结算 / 再次挑战
 │   ├── actions/               # 操作层（封装点击）
-│   │   ├── home_actions.py    # 导航 / 返回主页 / 关闭弹窗
-│   │   ├── season_actions.py  # 赛季页面操作 / 进入卡厄思
-│   │   └── czn_actions.py     # 常驻卡厄思操作 / 关卡选择 / 难度 / 进入战斗
+│   │   ├── home_actions.py    # 导航 / 返回 / 关闭弹窗
+│   │   ├── season_actions.py  # 进入卡厄思
+│   │   ├── czn_actions.py     # 关卡选择 / 难度 / 进入战斗
+│   │   ├── outing_actions.py  # 等级切换 / 进入战斗
+│   │   └── battle_actions.py  # 等待结算 / 再次挑战
 │   ├── data/                  # 游戏数据
 │   │   ├── card_loader.py     # 卡牌数据加载器
-│   │   └── cards/             # 角色卡牌图鉴（JSON）
-│   │       ├── 海德玛丽.json   # 已更新：7张卡牌 + 神光一闪
-│   │       ├── 米卡.json
-│   │       └── ...            # 36+ 角色卡牌数据
+│   │   ├── flash_scorer.py    # 神光一闪选择引擎
+│   │   ├── preset_loader.py   # 预设存档加载
+│   │   ├── cards/             # 角色卡牌图鉴 (JSON)
+│   │   └── presets/           # 预设存档 (JSON)
 │   ├── images/
-│   │   ├── commons/           # 公共模板（跨赛季复用）
-│   │   │   └── back_arrow.png
-│   │   └── s3/                # 赛季3「回荡在银河中的歌声」
-│   │       ├── banner.png     # 主页赛季入口横幅
-│   │       └── czn.png        # 赛季页面「卡厄思」按钮
-│   └── logs/                  # 日志输出
-└── .github/workflows/         # CI：钉钉通知
+│   │   └── commons/
+│   │       └── back_arrow.png # 返回箭头模板
+├── scripts/
+│   ├── calibrate_czn_roi.py   # ROI 校准工具
+│   └── fetch_bwiki.py         # GameKee 数据抓取
+├── test/                      # 测试脚本
+├── README.md
+└── AGENTS.md
 ```
 
 ## 依赖
@@ -66,11 +75,18 @@ pip install opencv-python pillow numpy "paddlepaddle>=3" "paddleocr>=3"
 ```json
 {
   "game": { "window_title": "卡厄思梦境" },
-  "click": { "delay_ms": 100, "post_click_wait_ms": 500, "humanize": true },
+  "click": { "post_click_wait_ms": 500 },
   "loop": { "interval_ms": 1000, "max_iterations": 0 },
-  "log": { "level": "DEBUG", "file": "src/logs/czn-auto.log", "max_size_mb": 50, "backup_count": 5 }
+  "mode": { "type": "manual" },
+  "outing": { "target_level": 45, "repeat_battle": false, "max_repeats": 0 },
+  "czn": { "stage_keyword": "幻象", "difficulty": "困难", "max_repeats": 0 }
 }
 ```
+
+**mode.type** 可选值：
+- `"manual"` — 手动模式，仅导航不自动刷
+- `"outing"` — 出击刷等级
+- `"czn"` — 卡厄思自动刷取
 
 ### 2. 运行
 
@@ -78,28 +94,24 @@ pip install opencv-python pillow numpy "paddlepaddle>=3" "paddleocr>=3"
 python main.py
 ```
 
-**必须以管理员权限运行**（ACE 反作弊拦截非管理员进程）。
+v2 不需要管理员权限（PostMessage + PrintWindow 不触发 ACE 反作弊拦截）。
 
-## 架构
+### 3. 模式说明
+
+#### Outing 模式（出击刷等级）
 
 ```
-main.py (CZNAuto)
-  ├── Screenshot    ← 截图
-  ├── Recognizer    ← 识别
-  ├── Clicker       ← 点击
-  ├── HomePage      ← 识别层: is_home / detect_page / find_season_banner
-  ├── SeasonPage    ← 识别层: find_czn_button
-  ├── CznPage       ← 识别层: is_czn / find_stages / find_difficulty / find_confirm_button
-  ├── HomeActions   ← 操作层: navigate_to / go_home / close_popup
-  ├── SeasonActions ← 操作层: enter_czn
-  └── CznActions    ← 操作层: select_stage / select_difficulty / enter_battle / scan_page
+主页 → 点击「出击」→ 设置等级 → 点击「进入」→ 确认上阵 → 进入战斗
+战斗结束 → 检测结算 → 点击「再次挑战」→ 循环
 ```
 
-**分层规则**：
-- `core/` — 底层能力，不依赖业务
-- `modules/` — 纯识别，不操作鼠标键盘
-- `actions/` — 纯操作，调 modules 拿坐标后执行点击
-- 新增页面 → `modules/` 加识别类 + `actions/` 加操作类
+#### CZN 模式（卡厄思刷取）
+
+```
+主页 → 赛季横幅 → 赛季页面 → 点击「卡厄思」按钮 → 幻象剧场
+→ 选关卡 → 选难度 → 进入战斗
+战斗结束 → 检测结算 → 点击「再次挑战」→ 循环
+```
 
 ## 主页判定逻辑
 
@@ -111,99 +123,45 @@ main.py (CZNAuto)
 
 - **竖线检测**：菜单栏 ROI `(88%-99%) × (8%-82%)`，Sobel 梯度 + 列投影
 - **返回箭头**：模板匹配 `src/images/commons/back_arrow.png`，阈值 0.45
-- 子页面左上角有返回箭头（←），主页没有，模板匹配不依赖颜色
-
-## 模块 API
-
-### HomePage — 识别层 (`src/modules/home.py`)
-
-| 方法 | 说明 |
-|------|------|
-| `is_home(screenshot) → bool` | 判定是否在主页 |
-| `detect_page(screenshot) → str` | 返回页面标识（"home" / "season" / "czn" / "popup" / "unknown"） |
-| `has_back_arrow(screenshot) → bool` | 检测返回箭头是否存在 |
-| `find_button(screenshot, target) → tuple | None` | OCR 查找菜单按钮坐标 |
-| `find_back_arrow(screenshot) → tuple | None` | 模板匹配找返回箭头坐标（1920×1080 基准） |
-| `find_season_banner(screenshot) → tuple | None` | 模板匹配找赛季入口横幅坐标 |
-| `get_layout_debug(screenshot) → dict` | 导出调试图数据 |
-
-### HomeActions — 操作层 (`src/actions/home_actions.py`)
-
-| 方法 | 说明 |
-|------|------|
-| `navigate_to(target, screenshot) → bool` | 导航到目标页面 |
-| `go_home() → bool` | 点击返回箭头回到主页，ESC 兜底 |
-| `close_popup() → bool` | 关闭弹窗（ESC） |
-
-### CznPage — 识别层 (`src/modules/czn.py`)
-
-| 方法 | 说明 |
-|------|------|
-| `is_czn(screenshot) → bool` | 判定是否在常驻卡厄思页面 |
-| `find_stages(screenshot) → list[dict]` | OCR 识别关卡列表 |
-| `find_stage_by_name(screenshot, keyword) → tuple | None` | 按名称查找关卡坐标 |
-| `find_difficulty(screenshot) → dict | None` | 识别当前选中难度 |
-| `find_difficulty_button(screenshot, target) → tuple | None` | 查找指定难度按钮 |
-| `find_confirm_button(screenshot) → tuple | None` | 查找确定/进入战斗按钮 |
-
-### CznActions — 操作层 (`src/actions/czn_actions.py`)
-
-| 方法 | 说明 |
-|------|------|
-| `select_stage(screenshot, keyword) → bool` | 选择关卡 |
-| `select_difficulty(screenshot, target) → bool` | 选择难度 |
-| `enter_battle(screenshot) → bool` | 点击确认进入战斗 |
-| `quick_start(screenshot, difficulty) → bool` | 一键选难度+进入战斗 |
-| `scan_page(screenshot) → dict` | 扫描页面所有可操作元素 |
 
 ## 卡牌数据系统
 
 `src/data/cards/*.json` — 角色卡牌图鉴，数据来源 GameKee。
 
-### CardLoader API
+### CardLoader
 
-| 方法 | 说明 |
-|------|------|
-| `load_all_cards() → dict` | 加载所有卡牌，返回 `{卡名: {...}}` |
-| `get_by_character(cards, char_name) → dict` | 返回指定角色的所有卡牌 |
-| `get_by_type(cards, card_type) → dict` | 返回指定类型（攻击/技能）的所有卡牌 |
-
-### 卡牌 JSON 格式
-
-```json
-{
-  "角色": "海德玛丽",
-  "属性": "热情", "职业": "游侠", "稀有度": "五星",
-  "卡牌": {
-    "卡牌名": {
-      "id": 972,
-      "type": "攻击",
-      "cost": 1,
-      "effect": "...",
-      "kind": "独特卡牌",
-      "rarity": "稀有",
-      "灵光一闪": true,
-      "神光一闪": [{"cost": 1, "effect": "...", "recommend": true}]
-    }
-  },
-  "自我意识技能": { "名称": "剑之乐园", "EP": 5, "效果": "..." },
-  "来源": "GameKee URL"
-}
+```python
+from src.data.card_loader import load_all_cards, get_by_character
+cards = load_all_cards()
+hmd_cards = get_by_character(cards, "海德玛丽")
 ```
 
-### 已更新角色
+### 神光一闪评分
 
-| 角色 | 卡牌数 | 灵光一闪 | 最后更新 |
-|------|--------|----------|----------|
-| 海德玛丽 | 8 张（2 基本 + 4 独特 + 2 可生成） | ✅ | 2026-06-22 |
+```python
+from src.data.card_loader import load_all_cards
+from src.data.preset_loader import load_preset
+from src.data.flash_scorer import FlashScorer
+
+cards = load_all_cards()
+preset = load_preset("heidemarie", "aurora_sword")
+scorer = FlashScorer(cards, preset)
+best = scorer.pick_best(ocr_texts, card_name)
+```
+
+## ROI 校准
+
+在游戏中进入对应页面后运行：
+
+```bash
+python scripts/calibrate_czn_roi.py
+```
+
+会在 `test_output/` 生成标注截图，根据截图微调 `src/modules/czn.py` 中的 ROI 常量。
 
 ## 注意事项
 
-- **必须管理员权限**：ACE 反作弊拦截非管理员进程
-- **必须窗口化**：PrintWindow 对全屏独占模式可能失效
+- v2 **不需要管理员权限**（PostMessage + PrintWindow 不触发 ACE 拦截）
 - 所有坐标基于 1920×1080 基准，`Clicker` 自动缩放
-- 截图默认不唤醒 UI（`capture(wake_ui=False)`），避免子页面误触按钮
-- 日志文件始终 DEBUG 全量记录，终端与文件格式内容完全一致
-- **赛季入口**：模板匹配右下角横幅 `s3/banner.png`，每季换图即可复用
-- **赛季模板**：`src/images/s3/` 目录，换季新建 `s4/` 目录即可
-- **测试脚本**：`python test_season_flow.py` 验证赛季流程，`python test_czn_flow.py` 验证常驻卡厄思流程
+- 截图不唤醒 UI（PrintWindow 后台操作，无需焦点）
+- 赛季模板：`src/images/s*/` 目录，换季新建目录即可

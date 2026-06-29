@@ -4,9 +4,7 @@
     "window_class": null
   },
   "click": {
-    "delay_ms": 100,
-    "post_click_wait_ms": 500,
-    "humanize": true
+    "post_click_wait_ms": 500
   },
   "loop": {
     "interval_ms": 1000,
@@ -19,11 +17,15 @@
     "backup_count": 5
   },
   "mode": {
-    "type": "outing"
+    "type": "manual"
   },
   "outing": {
     "target_level": 45,
-    "repeat_battle": false,
+    "max_repeats": 0
+  },
+  "czn": {
+    "stage_keyword": "幻象",
+    "difficulty": "困难",
     "max_repeats": 0
   }
 }

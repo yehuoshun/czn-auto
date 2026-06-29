@@ -71,6 +71,7 @@ class FlashScorer:
 
         # 2. 按 prefer 列表排序：prefer 位置越前越优先，同位置比相似度
         def sort_key(item):
+            """按 prefer 列表排序：位置越前越优先，同位置相似度越高越优先。"""
             oi, bi, sim = item
             branch_effect = branches[bi].get("effect", "")
             # 找这个分支在 prefer 列表中的位置
@@ -97,6 +98,7 @@ class FlashScorer:
         """字符级相似度（最长公共子序列 / 较短文本长度）"""
         # 去空格和标点
         def clean(s):
+            """去空格和标点，只保留汉字/字母/数字。"""
             return re.sub(r'[\s，。、（）%×+\-]', '', s)
         a = clean(a)
         b = clean(b)

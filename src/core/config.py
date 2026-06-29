@@ -3,7 +3,6 @@
 """
 
 import json
-import os
 from pathlib import Path
 from typing import Any
 import logging
@@ -68,42 +67,52 @@ class Config:
 
     @property
     def window_title(self) -> str:
+        """游戏窗口标题。"""
         return self.get("game", "window_title", default="")
 
     @property
     def window_class(self) -> str | None:
+        """游戏窗口类名（可选）。"""
         return self.get("game", "window_class")
 
     @property
     def base_width(self) -> int:
+        """基准屏幕宽度（1920）。"""
         return self._base_width
 
     @property
     def base_height(self) -> int:
+        """基准屏幕高度（1080）。"""
         return self._base_height
 
     @property
     def click_points(self) -> dict:
+        """预设点击坐标配置。"""
         return self.get("click_points", default={})
 
     @property
     def templates(self) -> dict:
+        """模板图片路径配置。"""
         return self.get("templates", default={})
 
     @property
     def click_delay_ms(self) -> int:
+        """点击间隔毫秒数。"""
         return self.get("click", "delay_ms", default=100)
 
     @property
     def post_click_wait_ms(self) -> int:
+        """点击后等待毫秒数。"""
         return self.get("click", "post_click_wait_ms", default=500)
 
     @property
     def loop_interval_ms(self) -> int:
+        """主循环间隔毫秒数。"""
         return self.get("loop", "interval_ms", default=1000)
 
     @property
     def max_iterations(self) -> int:
+        """最大迭代次数（0=无限）。"""
         return self.get("loop", "max_iterations", default=0)
 
     def scale_point(self, x: int, y: int, actual_w: int, actual_h: int) -> tuple[int, int]:

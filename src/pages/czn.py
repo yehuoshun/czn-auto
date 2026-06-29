@@ -8,7 +8,6 @@
 注意：ROI 为占位符，需在实际游戏运行时用校准脚本微调。
 """
 
-import cv2
 import logging
 from typing import Optional, Tuple, List, Dict
 
@@ -218,12 +217,3 @@ class CznPage(BasePage):
 
         return None
 
-    # ---------- 调试 ----------
-
-    def save_debug(self, screenshot: np.ndarray, name: str):
-        """保存调试图。"""
-        import os
-        os.makedirs("test_output", exist_ok=True)
-        path = f"test_output/czn_{name}.png"
-        cv2.imwrite(path, screenshot)
-        logger.info(f"调试图已保存: {path}")

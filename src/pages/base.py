@@ -7,7 +7,6 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Optional, Tuple, Any
 
 import numpy as np
 

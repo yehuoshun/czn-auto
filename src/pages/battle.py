@@ -6,11 +6,8 @@
 单一职责：仅处理战斗结算识别，不涉及点击。
 """
 
-import cv2
 import logging
 from typing import Optional, Tuple
-
-import numpy as np
 
 from .base import BasePage
 

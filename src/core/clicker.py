@@ -17,7 +17,7 @@ import ctypes
 import ctypes.wintypes
 import logging
 import time
-from typing import Tuple, Optional
+from typing import Tuple
 
 logger = logging.getLogger("czn-auto.clicker")
 

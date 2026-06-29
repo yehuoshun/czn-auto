@@ -11,6 +11,8 @@
 单一职责：仅处理主页识别，不涉及点击。
 """
 
+from typing import Optional, Tuple
+
 import cv2
 import numpy as np
 import logging

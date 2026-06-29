@@ -8,11 +8,9 @@
 import logging
 import logging.handlers
 import sys
-import os
 import time
 import json
 from pathlib import Path
-from datetime import datetime
 
 APP_VERSION = "0.1.0"
 
@@ -31,7 +29,7 @@ LOG_FMT_COMPACT = logging.Formatter(
 
 def setup_logging(
     level: str = "DEBUG",
-    log_file: str = "logs/czn-auto.log",
+    log_file: str = "src/logs/czn-auto.log",
     max_size_mb: int = 50,
     backup_count: int = 5,
     compact: bool = False,
@@ -100,6 +98,7 @@ def print_startup_banner(logger: logging.Logger, config: dict | None = None) -> 
         import ctypes
         is_admin = bool(ctypes.windll.shell32.IsUserAnAdmin())
     except Exception:
+        logger.debug("管理员权限检测失败（非 Windows 环境）")
         is_admin = False
     logger.info(f"管理员权限: {'是' if is_admin else '否 (部分操作可能失败)'}")
 

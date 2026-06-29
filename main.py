@@ -59,7 +59,7 @@ class CZNAuto:
         # 模式配置
         self.mode = self.config.get("mode", "type", default=MODE_MANUAL)
         self.outing_cfg = self.config.get("outing", default={
-            "target_level": 45, "max_repeats": 0,
+            "target_level": 40, "max_repeats": 0,
         })
         self.czn_cfg = self.config.get("czn", default={
             "stage_keyword": "幻象", "difficulty": "困难", "max_repeats": 0,

@@ -10,6 +10,8 @@ import re
 import logging
 from typing import Optional, Tuple
 
+import numpy as np
+
 from .base import BasePage
 
 logger = logging.getLogger("czn-auto.pages.outing")

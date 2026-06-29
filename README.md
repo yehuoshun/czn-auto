@@ -26,36 +26,40 @@ czn-auto/
 ├── src/
 │   ├── config.json            # 配置文件
 │   ├── core/                  # 底层能力
+│   │   ├── __init__.py
 │   │   ├── screenshot.py      # PrintWindow 后台截图
 │   │   ├── recognizer.py      # 模板匹配 + PaddleOCR
 │   │   ├── clicker.py         # PostMessage 后台点击
 │   │   ├── config.py          # JSON 配置加载，自动缩放
 │   │   └── logger.py          # 日志双输出
-│   ├── modules/               # 识别层（纯视觉，不点击）
-│   │   ├── home.py            # 主页检测 / 页面判定 / 赛季入口
-│   │   ├── season.py          # 赛季页面 / 卡厄思按钮
+│   ├── pages/                 # 页面识别层（纯视觉，不点击）
+│   │   ├── __init__.py
+│   │   ├── base.py            # 页面抽象基类
+│   │   ├── home.py            # 主页检测 / 页面判定 / 菜单按钮
+│   │   ├── season.py          # 赛季页面 / 卡厄思入口
 │   │   ├── czn.py             # 卡厄思页面 / 关卡/难度/确认按钮
-│   │   ├── outing.py          # 出击页面 / 等级/进入按钮
+│   │   ├── outing.py          # 出击页面 / 等级/进入/确认按钮
 │   │   └── battle.py          # 战斗结算 / 再次挑战
-│   ├── actions/               # 操作层（封装点击）
-│   │   ├── home_actions.py    # 导航 / 返回 / 关闭弹窗
-│   │   ├── season_actions.py  # 进入卡厄思
-│   │   ├── czn_actions.py     # 关卡选择 / 难度 / 进入战斗
-│   │   ├── outing_actions.py  # 等级切换 / 进入战斗
-│   │   └── battle_actions.py  # 等待结算 / 再次挑战
 │   ├── data/                  # 游戏数据
+│   │   ├── __init__.py
 │   │   ├── card_loader.py     # 卡牌数据加载器
 │   │   ├── flash_scorer.py    # 神光一闪选择引擎
 │   │   ├── preset_loader.py   # 预设存档加载
 │   │   ├── cards/             # 角色卡牌图鉴 (JSON)
 │   │   └── presets/           # 预设存档 (JSON)
-│   ├── images/
-│   │   └── commons/
-│   │       └── back_arrow.png # 返回箭头模板
+│   └── images/
+│       └── commons/
+│           └── back_arrow.png # 返回箭头模板
+├── references/
+│   └── flash_keywords.json    # 灵光/神光一闪词条参考
 ├── scripts/
 │   ├── calibrate_czn_roi.py   # ROI 校准工具
 │   └── fetch_bwiki.py         # GameKee 数据抓取
-├── test/                      # 测试脚本
+├── test/
+│   ├── test_outing_flow.py    # 出击流程实机测试（Windows）
+│   ├── test_outing_unit.py    # 出击模块单元测试
+│   ├── test_outing.py         # 旧版出击识别测试
+│   └── test_menus.py          # 菜单按钮识别测试
 ├── README.md
 └── AGENTS.md
 ```
@@ -78,7 +82,7 @@ pip install opencv-python pillow numpy "paddlepaddle>=3" "paddleocr>=3"
   "click": { "post_click_wait_ms": 500 },
   "loop": { "interval_ms": 1000, "max_iterations": 0 },
   "mode": { "type": "manual" },
-  "outing": { "target_level": 45, "repeat_battle": false, "max_repeats": 0 },
+  "outing": { "target_level": 40, "max_repeats": 0 },
   "czn": { "stage_keyword": "幻象", "difficulty": "困难", "max_repeats": 0 }
 }
 ```
@@ -157,7 +161,17 @@ best = scorer.pick_best(ocr_texts, card_name)
 python scripts/calibrate_czn_roi.py
 ```
 
-会在 `test_output/` 生成标注截图，根据截图微调 `src/modules/czn.py` 中的 ROI 常量。
+会在 `test_output/` 生成标注截图，根据截图微调 `src/pages/czn.py` 中的 ROI 常量。
+
+## 测试
+
+```bash
+# 出击流程实机测试（Windows，需要游戏窗口）
+python test/test_outing_flow.py
+
+# 出击模块单元测试（不依赖 Windows API）
+python test/test_outing_unit.py
+```
 
 ## 注意事项
 

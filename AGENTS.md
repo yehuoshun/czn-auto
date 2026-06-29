@@ -120,6 +120,24 @@ cv_img = screenshot.to_cv2(img)     # → OpenCV BGR
 - ✅ 弹窗关闭 + ESC 回主页
 - ✅ ROI 校准脚本 scripts/calibrate_czn_roi.py
 - ✅ 卡牌数据系统（36 角色 + 神光一闪选择引擎）
+- ✅ 代码审查清理（删未用 import、补 typing、删死代码、补 __init__.py）
+- ✅ 出击流程实机测试脚本 test/test_outing_flow.py
+- ✅ 出击模块单元测试 test/test_outing_unit.py
 - 🚧 CZN 页面 ROI 需实际截图微调
 - 🚧 PostMessage 兼容性需 Windows 实测
 - 🚧 异常恢复（翻车检测、超时重试）
+- 🚧 等级调整需增加右箭头（当前只有左箭头减等级）
+
+## 测试脚本
+
+```bash
+# 实机流程测试（Windows，需要游戏窗口）
+python test/test_outing_flow.py
+
+# 单元测试（不依赖 Windows API）
+python test/test_outing_unit.py
+```
+
+## 参考数据
+
+- `references/flash_keywords.json` — 灵光/神光一闪词条表，作为数据参考未被代码直接引用

@@ -194,3 +194,12 @@ python test/test_outing_unit.py
 - 所有坐标基于 1920×1080 基准，`Clicker` 自动缩放
 - 截图不唤醒 UI（PrintWindow 后台操作，无需焦点）
 - 赛季模板：`src/images/s*/` 目录，换季新建目录即可
+
+## 开发流程
+
+```
+开发环境（Linux） → 写代码 + 静态验证 → 展示 diff → 等待确认 → push
+测试环境（Windows） → git pull → 实机测试 → 反馈结果
+```
+
+**注意：** 代码修改必须经过老大确认后才能提交，开发环境和测试环境严格隔离。
